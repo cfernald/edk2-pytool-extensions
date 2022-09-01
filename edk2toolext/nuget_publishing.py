@@ -178,7 +178,7 @@ class NugetSupport(object):
     # create a nuspec file for packing
     #
 
-    def _MakeNuspecXml(self, ContentDir, ReleaseNotesText=None):
+    def _MakeNuspecXml(self, ContentDir, ReleaseNotesText=None, UseRootDir=False):
         package = etree.fromstring(NugetSupport.NUSPEC_TEMPLATE_XML)
         meta = package.find("./metadata")
         meta.find("id").text = self.Name
@@ -192,7 +192,10 @@ class NugetSupport(object):
             meta.find("tags").text = self.ConfigData["tags_string"]
         files = package.find("files")
         f = files.find("file")
-        f.set("target", self.Name)
+        if(not UseRootDir):
+            f.set("target", self.Name)
+        else:
+            f.set("target", "\\")
         f.set("src", ContentDir + "\\**\\*")
 
         if(ReleaseNotesText is not None):
@@ -239,7 +242,7 @@ class NugetSupport(object):
     # Pack the current contents into
     # Nupkg
     #
-    def Pack(self, version, OutputDirectory, ContentDir, RelNotesText=None):
+    def Pack(self, version, OutputDirectory, ContentDir, RelNotesText=None, UseRootDir=False):
         self.NewVersion = version
 
         # content must be absolute path in nuspec otherwise it is assumed
@@ -247,7 +250,7 @@ class NugetSupport(object):
         cdir = os.path.abspath(ContentDir)
 
         # make nuspec file
-        xmlstring = self._MakeNuspecXml(cdir, RelNotesText)
+        xmlstring = self._MakeNuspecXml(cdir, RelNotesText, UseRootDir)
         nuspec = os.path.join(OutputDirectory, self.Name + ".nuspec")
         self.TempFileToDelete.append(nuspec)
         f = open(nuspec, "wb")
@@ -349,6 +352,8 @@ def GatherArguments():
         parser.add_argument('--ApiKey', dest="ApiKey",
                             help="<Optional>Api key to use. Default is 'VSTS' which will invoke interactive login",
                             default="VSTS")
+        parser.add_argument("--UseRoot", dest="UseRoot", action="store_true",
+                            help="Add files to the package root directory", default=False)
 
     elif(args.op.lower() == "push"):
         parser.add_argument("--ConfigFilePath", dest="ConfigFilePath",
@@ -452,7 +457,7 @@ def main():
             return ret
         '''
 
-        ret = nu.Pack(args.Version, TempOutDir, args.InputFolderPath, args.ReleaseNotes)
+        ret = nu.Pack(args.Version, TempOutDir, args.InputFolderPath, args.ReleaseNotes, args.UseRoot)
         if (ret != 0):
             logging.error("Failed to pack.  Return Code 0x%x" % ret)
             return ret
